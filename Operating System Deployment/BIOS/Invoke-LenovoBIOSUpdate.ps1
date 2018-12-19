@@ -121,9 +121,16 @@ Process {
 	}
 	
 	# Flash CMD upgrade utility file name
-	$FlashCMDUtility = Get-ChildItem -Path $Path -Filter "*.cmd" -Recurse | Where-Object {
-		$_.Name -like "Flash.cmd"
-	} | Select-Object -ExpandProperty FullName
+	if (([Environment]::Is64BitOperatingSystem) -eq $true) {
+		$FlashCMDUtility = Get-ChildItem -Path $Path -Filter "*.cmd" -Recurse | Where-Object {
+			$_.Name -like "Flash64.cmd"
+		} | Select-Object -ExpandProperty FullName
+	}
+	else {
+		$FlashCMDUtility = Get-ChildItem -Path $Path -Filter "*.cmd" -Recurse | Where-Object {
+			$_.Name -like "Flash.cmd"
+		} | Select-Object -ExpandProperty FullName
+	}
 	
 	if ($WinUPTPUtility -ne $null) {
 		# Set required switches for silent upgrade of the bios and logging
@@ -143,7 +150,7 @@ Process {
 		Write-CMLogEntry -Value "Supported upgrade utility was not found." -Severity 3
 	}
 	
-	if ($Password -ne $null) {
+	if (-Not [String]::IsNullOrEmpty($Password)) {
 		# Add password to the flash bios switches
 		$FlashSwitches = $FlashSwitches + " /pass:$Password"
 		Write-CMLogEntry -Value "Using the following switches for BIOS file: $($FlashSwitches -replace $Password, "<Password Removed>")" -Severity 1
@@ -164,9 +171,11 @@ Process {
 			$winuptplog = Get-ChildItem -Filter "*.log" -Recurse | Where-Object {
 				$_.Name -like "winuptp.log"
 			} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
-			Write-CMLogEntry -Value "winuptp.log file path is $($winuptplog)" -Severity 1
-			$smstslogpath = Join-Path -Path $TSEnvironment.Value("_SMSTSLogPath") -ChildPath "winuptp.log"
-			Copy-Item -Path $winuptplog -Destination $smstslogpath -Force -ErrorAction SilentlyContinue
+			if ($winuptplog -ne $null) {
+				Write-CMLogEntry -Value "winuptp.log file path is $($winuptplog)" -Severity 1
+				$smstslogpath = Join-Path -Path $TSEnvironment.Value("_SMSTSLogPath") -ChildPath "winuptp.log"
+				Copy-Item -Path $winuptplog -Destination $smstslogpath -Force -ErrorAction SilentlyContinue
+			}
 		}
 		catch [System.Exception] {
 			Write-CMLogEntry -Value "An error occured while updating the system BIOS in OS online phase. Error message: $($_.Exception.Message)" -Severity 3; exit 1
